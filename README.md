@@ -1,15 +1,8 @@
-# canvas-select
+# annotation-light
 
 一个用于图片标注的 javascript 库，基于 canvas，简单轻量，支持矩形、多边形、点、折线、圆形标注。
 
 > A lightweight image annotation javascript library that supports rectangles, polygons, points, polylines, circles, and re-editing, making image annotation easier.
-
-[![NPM version](https://img.shields.io/npm/v/canvas-select.svg?style=flat)](https://npmjs.org/package/canvas-select)
-[![NPM downloads](http://img.shields.io/npm/dm/canvas-select.svg?style=flat)](https://npmjs.org/package/canvas-select)
-
-查看示例 👉 [demo](https://codepen.io/heylight/pen/VwbQLje)
-
-![图例](https://cdn.jsdelivr.net/npm/@heylight/cdn@%5E1/img/demo.png)
 
 ## 简介
 
@@ -48,10 +41,6 @@
 - 通过 `instance.dataset`或者监听`updated`事件回调参数查看标注结果。
 
 支持 UMD 模块规范
-
-```html
-<script src="https://unpkg.com/canvas-select@^2/lib/canvas-select.min.js"></script>
-```
 
 ```bash
 npm install canvas-select --save

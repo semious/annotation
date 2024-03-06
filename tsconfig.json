@@ -3,7 +3,10 @@
     "allowSyntheticDefaultImports": true,
     "noImplicitAny": true,
     "downlevelIteration": true,
-    "lib": ["es2016", "DOM"],
+    "lib": [
+      "es2016",
+      "DOM"
+    ],
     "module": "es6",
     "target": "es5",
     "allowJs": true,
@@ -13,5 +16,7 @@
     "moduleResolution": "node",
     "declaration": true
   },
-  "include": ["src/**/*"]
+  "include": [
+    "src/**/*"
+  ]
 }
