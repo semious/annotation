@@ -17,7 +17,7 @@ export default {
     sourcemaps(),
     typescript(),
     babel({ babelHelpers: "bundled" }),
-    terser(),
+    // terser(),
     json(),
   ],
 };

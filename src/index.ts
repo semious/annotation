@@ -10,7 +10,7 @@ import { isNested } from "./tools";
 export type Point = [number, number];
 export type AllShape = Rect | Polygon | Dot | Line | Circle;
 
-export default class CanvasSelect extends EventBus {
+export default class Annotation extends EventBus {
     /** 当前版本 */
     version = pkg.version;
     /** 只读模式，画布不允许任何交互 */

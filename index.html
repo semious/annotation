@@ -62,10 +62,7 @@
     <script>
       // alert(document.body.clientWidth)
       const output = document.getElementById("output");
-      const instance = new CanvasSelect(
-        ".container",
-        "https://www.zhuhailiang.com/api/images/onepiece.png"
-      );
+      const instance = new Annotation(".container", "./assets/demo.jpg");
       // instance.focusMode = true
       instance.ctrlRadius = navigator.userAgent.includes("Mobile") ? 6 : 3;
       window.c = instance;
@@ -161,19 +158,5 @@
         instance.setData(data);
       }
     </script>
-    <!-- <script src="https://unpkg.com/stats.js@0.17.0/build/stats.min.js"> </script>
-  <script>
-    const stats = new Stats();
-    // stats.showPanel(2); // 0: fps, 1: ms, 2: mb, 3+: custom
-    document.body.appendChild(stats.dom);
-    function animate() {
-      stats.begin();
-      // monitored code goes here
-      stats.end();
-      requestAnimationFrame(animate);
-    }
-    requestAnimationFrame(animate);
-
-  </script> -->
   </body>
 </html>
