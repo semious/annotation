@@ -6,6 +6,7 @@ import Line from './shape/Line';
 import Circle from './shape/Circle';
 import pkg from '../package.json';
 import { isNested } from "./tools";
+import Magnify from "./util/magnify"
 
 export type Point = [number, number];
 export type AllShape = Rect | Polygon | Dot | Line | Circle;
@@ -57,6 +58,9 @@ export default class Annotation extends EventBus {
     canvas: HTMLCanvasElement;
 
     ctx: CanvasRenderingContext2D;
+
+    magnify: Magnify;
+
     /** 所有标注数据 */
     dataset: AllShape[] = [];
 
@@ -64,11 +68,11 @@ export default class Annotation extends EventBus {
 
     offScreenCtx: CanvasRenderingContext2D;
     /** 记录锚点距离 */
-    remmber: number[][];
+    remember: number[][];
     /** 记录鼠标位置 */
     mouse: Point;
     /** 记录背景图鼠标位移 */
-    remmberOrigin: number[] = [0, 0];
+    rememberOrigin: number[] = [0, 0];
     /** 0 不创建，1 矩形，2 多边形，3 点，4 折线，5 圆 */
     createType = 0; //
     /** 控制点索引 */
@@ -112,9 +116,9 @@ export default class Annotation extends EventBus {
     labelUp = false;
     /**
      * @param el Valid CSS selector string, or DOM
-     * @param src image src
+     * @param magnifyEl magnify Canvas ID
      */
-    constructor(el: HTMLCanvasElement | string, src?: string) {
+    constructor(el: HTMLCanvasElement | string, imgSrc?: string, magnifyEl?: string,) {
         super();
         this.handleLoad = this.handleLoad.bind(this);
         this.handleContextmenu = this.handleContextmenu.bind(this);
@@ -130,7 +134,8 @@ export default class Annotation extends EventBus {
             this.offScreen = document.createElement('canvas');
             this.initSetting();
             this.initEvents();
-            src && this.setImage(src);
+            magnifyEl && (this.magnify = new Magnify(magnifyEl, container))
+            imgSrc && this.setImage(imgSrc)
         } else {
             console.warn('HTMLCanvasElement is required!');
         }
@@ -213,13 +218,13 @@ export default class Annotation extends EventBus {
         const offsetX = Math.round(mouseX / this.scale);
         const offsetY = Math.round(mouseY / this.scale);
         this.mouse = this.isMobile && (e as TouchEvent).touches.length === 2 ? [mouseCX, mouseCY] : [mouseX, mouseY];
-        this.remmberOrigin = [mouseX - this.originX, mouseY - this.originY];
+        this.rememberOrigin = [mouseX - this.originX, mouseY - this.originY];
         if ((!this.isMobile && (e as MouseEvent).buttons === 1) || (this.isMobile && (e as TouchEvent).touches.length === 1)) { // 鼠标左键
             const ctrls = this.activeShape.ctrlsData || [];
             this.ctrlIndex = ctrls.findIndex((coor: Point) => this.isPointInCircle(this.mouse, coor, this.ctrlRadius));
             if (this.ctrlIndex > -1) { // 点击到控制点
                 const [x0, y0] = ctrls[this.ctrlIndex];
-                this.remmber = [[offsetX - x0, offsetY - y0]];
+                this.remember = [[offsetX - x0, offsetY - y0]];
             } else if (this.isInBackground(e)) {
                 if (this.activeShape.creating && !this.readonly) { // 创建中
                     if ([2, 4].includes(this.activeShape.type)) {
@@ -271,13 +276,13 @@ export default class Annotation extends EventBus {
                         this.dataset.splice(hitShapeIndex, 1);
                         this.dataset.push(hitShape);
                         if (!this.readonly) {
-                            this.remmber = [];
+                            this.remember = [];
                             if ([3, 5].includes(hitShape.type)) {
                                 const [x, y] = hitShape.coor;
-                                this.remmber = [[offsetX - x, offsetY - y]];
+                                this.remember = [[offsetX - x, offsetY - y]];
                             } else {
                                 hitShape.coor.forEach((pt: any) => {
-                                    this.remmber.push([offsetX - pt[0], offsetY - pt[1]]);
+                                    this.remember.push([offsetX - pt[0], offsetY - pt[1]]);
                                 });
                             }
                         }
@@ -294,6 +299,7 @@ export default class Annotation extends EventBus {
     }
 
     handelMouseMove(e: MouseEvent | TouchEvent) {
+        // const dpr = window.devicePixelRatio || 1;
         e.stopPropagation();
         this.evt = e;
         if (this.lock) return;
@@ -301,9 +307,17 @@ export default class Annotation extends EventBus {
         const offsetX = Math.round(mouseX / this.scale);
         const offsetY = Math.round(mouseY / this.scale);
         this.mouse = this.isMobile && (e as TouchEvent).touches.length === 2 ? [mouseCX, mouseCY] : [mouseX, mouseY];
+        console.log('this.offset :>>', mouseX, mouseY)
+        console.log('this.mouse :>> ', this.mouse);
+        // console.log('this.magnify :>> ', this.magnify);
+        console.log('this.canvas.width :>> ', this.canvas.width);
+        // if (this.magnify) {
+        //     this.magnify.magnify((mouseX - 20) * dpr, (mouseY - 20) * dpr);
+        // }
+
         if (((!this.isMobile && (e as MouseEvent).buttons === 1) || (this.isMobile && (e as TouchEvent).touches.length === 1)) && this.activeShape.type) {
             if (this.ctrlIndex > -1 && (this.isInBackground(e) || this.activeShape.type === 5)) {
-                const [[x, y]] = this.remmber;
+                const [[x, y]] = this.remember;
                 // resize矩形
                 if (this.activeShape.type === 1) {
                     const [[x0, y0], [x1, y1]] = this.activeShape.coor;
@@ -379,14 +393,14 @@ export default class Annotation extends EventBus {
                 const w = this.IMAGE_ORIGIN_WIDTH || this.WIDTH;
                 const h = this.IMAGE_ORIGIN_HEIGHT || this.HEIGHT;
                 if ([3, 5].includes(this.activeShape.type)) {
-                    const [t1, t2] = this.remmber[0];
+                    const [t1, t2] = this.remember[0];
                     const x = offsetX - t1;
                     const y = offsetY - t2;
                     if (x < 0 || x > w || y < 0 || y > h) noLimit = false;
                     coor = [x, y];
                 } else {
                     for (let i = 0; i < this.activeShape.coor.length; i++) {
-                        const tar = this.remmber[i];
+                        const tar = this.remember[i];
                         const x = offsetX - tar[0];
                         const y = offsetY - tar[1];
                         if (x < 0 || x > w || y < 0 || y > h) noLimit = false;
@@ -412,8 +426,8 @@ export default class Annotation extends EventBus {
             this.update();
         } else if ((!this.isMobile && (e as MouseEvent).buttons === 2 && (e as MouseEvent).which === 3) || (this.isMobile && (e as TouchEvent).touches.length === 1 && !this.isTouch2)) {
             // 拖动背景
-            this.originX = Math.round(mouseX - this.remmberOrigin[0]);
-            this.originY = Math.round(mouseY - this.remmberOrigin[1]);
+            this.originX = Math.round(mouseX - this.rememberOrigin[0]);
+            this.originY = Math.round(mouseY - this.rememberOrigin[1]);
             this.update();
         } else if (this.isMobile && (e as TouchEvent).touches.length === 2) {
             this.isTouch2 = true;
@@ -423,6 +437,9 @@ export default class Annotation extends EventBus {
             this.scaleTouchStore = Math.abs((touch1.clientX - touch0.clientX) * (touch1.clientY - touch0.clientY));
             this.setScale(this.scaleTouchStore > cur, true);
         }
+
+
+
     }
 
     handelMouseUp(e: MouseEvent | TouchEvent) {
@@ -439,7 +456,7 @@ export default class Annotation extends EventBus {
             }
             this.dblTouchStore = Date.now();
         }
-        this.remmber = [];
+        this.remember = [];
         if (this.activeShape.type) {
             this.activeShape.dragging = false;
             if (this.activeShape.creating) {
@@ -505,8 +522,12 @@ export default class Annotation extends EventBus {
         const dpr = window.devicePixelRatio || 1;
         this.canvas.style.userSelect = 'none';
         this.ctx = this.ctx || this.canvas.getContext('2d', { alpha: this.alpha });
+        this.ctx.imageSmoothingEnabled = true;
+        this.ctx.imageSmoothingQuality = 'high';
         this.WIDTH = this.canvas.clientWidth;
         this.HEIGHT = this.canvas.clientHeight;
+        // console.log('this.WIDTH :>> ', this.WIDTH);
+        // console.log('this.HEIGHT :>> ', this.HEIGHT);
         this.canvas.width = this.WIDTH * dpr;
         this.canvas.height = this.HEIGHT * dpr;
         this.canvas.style.width = this.WIDTH + 'px';

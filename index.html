@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"
     />
-    <title>canvas-select示例</title>
+    <title>annotation 示例</title>
     <style>
       * {
         margin: 0;
@@ -19,9 +19,7 @@
 
       .container {
         background-color: #ccc;
-        width: 100%;
-        max-width: 400px;
-        height: 400px;
+        height: 600px;
       }
 
       .right {
@@ -39,6 +37,7 @@
     <div class="box">
       <div class="left">
         <canvas class="container"></canvas>
+        <!-- <canvas class="magnify" width="400" height="400"></canvas> -->
         <div>
           <button onclick="change(1)">创建矩形</button>
           <button onclick="change(2)">创建多边形</button>
@@ -62,7 +61,7 @@
     <script>
       // alert(document.body.clientWidth)
       const output = document.getElementById("output");
-      const instance = new Annotation(".container", "./assets/demo.jpg");
+      const instance = new Annotation(".container", "./assets/demo2.jpg");
       // instance.focusMode = true
       instance.ctrlRadius = navigator.userAgent.includes("Mobile") ? 6 : 3;
       window.c = instance;
