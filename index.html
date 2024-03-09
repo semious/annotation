@@ -61,32 +61,32 @@
     <script>
       // alert(document.body.clientWidth)
       const output = document.getElementById("output");
-      const instance = new Annotation(".container", "./assets/demo2.jpg");
+      const instance = new Annotation(".container", "./assets/demo3.png");
       // instance.focusMode = true
       instance.ctrlRadius = navigator.userAgent.includes("Mobile") ? 6 : 3;
       window.c = instance;
       let option = [
-        {
-          label: "矩形",
-          coor: [
-            [184, 183],
-            [275, 238],
-          ],
-          type: 1,
-        },
-        {
-          label: "多边形",
-          coor: [
-            [135, 291],
-            [129, 319],
-            [146, 346],
-            [174, 365],
-            [214, 362],
-            [196, 337],
-            [161, 288],
-          ],
-          type: 2,
-        },
+        // {
+        //   label: "矩形",
+        //   coor: [
+        //     [184, 183],
+        //     [275, 238],
+        //   ],
+        //   type: 1,
+        // },
+        // {
+        //   label: "多边形",
+        //   coor: [
+        //     [135, 291],
+        //     [129, 319],
+        //     [146, 346],
+        //     [174, 365],
+        //     [214, 362],
+        //     [196, 337],
+        //     [161, 288],
+        //   ],
+        //   type: 2,
+        // },
         {
           label: "点",
           coor: [2445, 2406],

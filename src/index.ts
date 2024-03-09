@@ -39,9 +39,9 @@ export default class Annotation extends EventBus {
     /** 控制点填充颜色 */
     ctrlFillStyle = '#fff';
     /** 控制点半径 */
-    ctrlRadius = 3;
+    ctrlRadius = 5;
     /** 是否隐藏标签 */
-    hideLabel = false;
+    hideLabel = true;
     /** 标签背景填充颜色 */
     labelFillStyle = '#fff';
     /** 标签字体 */
@@ -95,6 +95,8 @@ export default class Annotation extends EventBus {
     scaleStep = 0;
     /** 滚动缩放 */
     scrollZoom = true;
+
+    fitZoomScale = 1;
 
     private timer: any;
     /** 最小touch双击时间 */
@@ -188,6 +190,12 @@ export default class Annotation extends EventBus {
         return { ...e, mouseX, mouseY, mouseCX, mouseCY };
     }
 
+    syncMousePoint(e: MouseEvent | TouchEvent) {
+        const { mouseX, mouseY, mouseCX, mouseCY } = this.mergeEvent(e);
+        this.mouse = this.isMobile && (e as TouchEvent).touches.length === 2 ? [mouseCX, mouseCY] : [mouseX, mouseY];
+        console.log('this.mouse :>> ', this.mouse);
+    }
+
     handleLoad() {
         this.emit('load', this.image.src);
         this.IMAGE_ORIGIN_WIDTH = this.IMAGE_WIDTH = this.image.width;
@@ -197,8 +205,24 @@ export default class Annotation extends EventBus {
 
     handleContextmenu(e: MouseEvent) {
         e.preventDefault();
+        console.log('contextmenu :>> ', e);
+        console.log('this.scale :>> ', this.scale);
+        console.log('this.fitZoomScale :>> ', this.fitZoomScale);
         this.evt = e;
-        if (this.lock) return;
+        if (this.lock || !this.scrollZoom) return;
+        const { mouseX, mouseY } = this.mergeEvent(e);
+        this.mouse = [mouseX, mouseY];
+        this.syncMousePoint(e);
+        if (Math.abs(this.scale - this.fitZoomScale) > 0.01) {
+            this.fitZoom();
+        } else {
+            console.log('scale');
+            // this.setScale(true, true, false, 2);
+            for (let i = 0; i < 30; i++) {
+                this.setScale(true, true);
+            }
+            // this.setScale(true, true, false);
+        }
     }
 
     handleMousewheel(e: WheelEvent) {
@@ -207,6 +231,7 @@ export default class Annotation extends EventBus {
         if (this.lock || !this.scrollZoom) return;
         const { mouseX, mouseY } = this.mergeEvent(e);
         this.mouse = [mouseX, mouseY];
+        console.log('e.deltaY :>> ', e.deltaY);
         this.setScale(e.deltaY < 0, true);
     }
 
@@ -307,10 +332,10 @@ export default class Annotation extends EventBus {
         const offsetX = Math.round(mouseX / this.scale);
         const offsetY = Math.round(mouseY / this.scale);
         this.mouse = this.isMobile && (e as TouchEvent).touches.length === 2 ? [mouseCX, mouseCY] : [mouseX, mouseY];
-        console.log('this.offset :>>', mouseX, mouseY)
-        console.log('this.mouse :>> ', this.mouse);
+        // console.log('this.offset :>>', mouseX, mouseY)
+        // console.log('this.mouse :>> ', this.mouse);
         // console.log('this.magnify :>> ', this.magnify);
-        console.log('this.canvas.width :>> ', this.canvas.width);
+        // console.log('this.canvas.width :>> ', this.canvas.width);
         // if (this.magnify) {
         //     this.magnify.magnify((mouseX - 20) * dpr, (mouseY - 20) * dpr);
         // }
@@ -501,6 +526,7 @@ export default class Annotation extends EventBus {
 
     handelKeyup(e: KeyboardEvent) {
         e.stopPropagation();
+        console.log('e :>> ', e);
         this.evt = e;
         if (this.lock || document.activeElement !== document.body || this.readonly) return;
         if (this.activeShape.type) {
@@ -1002,7 +1028,7 @@ export default class Annotation extends EventBus {
      * @param center 缩放中心 center|mouse
      * @param pure 不绘制
      */
-    setScale(type: boolean, byMouse = false, pure = false) {
+    setScale(type: boolean, byMouse = false, pure = false, ratio = 0.1) {
         if (this.lock) return;
         if ((!type && this.imageMin < 20) || (type && this.IMAGE_WIDTH > this.imageOriginMax * 100)) return;
         if (type) { this.scaleStep++; } else { this.scaleStep--; }
@@ -1015,8 +1041,11 @@ export default class Annotation extends EventBus {
         }
         const abs = Math.abs(this.scaleStep);
         const width = this.IMAGE_WIDTH;
-        this.IMAGE_WIDTH = Math.round(this.IMAGE_ORIGIN_WIDTH * (this.scaleStep >= 0 ? 1.05 : 0.95) ** abs);
-        this.IMAGE_HEIGHT = Math.round(this.IMAGE_ORIGIN_HEIGHT * (this.scaleStep >= 0 ? 1.05 : 0.95) ** abs);
+        const upRatio = 1 + ratio;
+        const downRatio = 1 - ratio;
+
+        this.IMAGE_WIDTH = Math.round(this.IMAGE_ORIGIN_WIDTH * (this.scaleStep >= 0 ? upRatio : downRatio) ** abs);
+        this.IMAGE_HEIGHT = Math.round(this.IMAGE_ORIGIN_HEIGHT * (this.scaleStep >= 0 ? upRatio : downRatio) ** abs);
         if (byMouse) {
             this.originX = x - realToLeft * this.scale;
             this.originY = y - realToRight * this.scale;
@@ -1027,6 +1056,7 @@ export default class Annotation extends EventBus {
         }
         if (!pure) {
             this.update();
+            console.log('this.scale :>> ', this.scale);
         }
     }
 
@@ -1045,6 +1075,8 @@ export default class Annotation extends EventBus {
         this.originX = (this.WIDTH - this.IMAGE_WIDTH) / 2;
         this.originY = (this.HEIGHT - this.IMAGE_HEIGHT) / 2;
         this.update();
+        this.fitZoomScale = this.scale
+        console.log('this.fitZoomValue :>> ', this.fitZoomScale);
     }
 
     /**
