@@ -7,9 +7,20 @@ import Circle from './shape/Circle';
 import pkg from '../package.json';
 import { isNested } from "./tools";
 import Magnify from "./util/magnify"
+import { drawCirle, drawCtrlList, drawDot, drawLine, drawPolygon, drawRect } from './draw';
 
 export type Point = [number, number];
 export type AllShape = Rect | Polygon | Dot | Line | Circle;
+
+/** 0 不创建，1 矩形，2 多边形，3 点，4 折线，5 圆 */
+enum OpType {
+    NONE = 0,
+    RECT = 1,
+    POLYGON = 2,
+    DOT = 3,
+    LINE = 4,
+    CIRCLE = 5
+}
 
 export default class Annotation extends EventBus {
     /** 当前版本 */
@@ -23,7 +34,7 @@ export default class Annotation extends EventBus {
     /** 最小矩形高度 */
     MIN_HEIGHT = 10;
     /** 最小圆形半径 */
-    MIN_RADIUS = 5;
+    MIN_RADIUS = 3;
     /** 边线颜色 */
     strokeStyle = '#0f0';
     /** 填充颜色 */
@@ -74,7 +85,7 @@ export default class Annotation extends EventBus {
     /** 记录背景图鼠标位移 */
     rememberOrigin: number[] = [0, 0];
     /** 0 不创建，1 矩形，2 多边形，3 点，4 折线，5 圆 */
-    createType = 0; //
+    createType = OpType.NONE; //
     /** 控制点索引 */
     ctrlIndex = -1;
     /** 背景图片 */
@@ -94,7 +105,7 @@ export default class Annotation extends EventBus {
     /** 缩放步长 */
     scaleStep = 0;
     /** 滚动缩放 */
-    scrollZoom = true;
+    scrollZoom = false;
 
     fitZoomScale = 1;
 
@@ -205,23 +216,21 @@ export default class Annotation extends EventBus {
 
     handleContextmenu(e: MouseEvent) {
         e.preventDefault();
-        console.log('contextmenu :>> ', e);
+        // console.log('contextmenu :>> ', e);
         console.log('this.scale :>> ', this.scale);
         console.log('this.fitZoomScale :>> ', this.fitZoomScale);
         this.evt = e;
-        if (this.lock || !this.scrollZoom) return;
+        if (this.lock) return;
         const { mouseX, mouseY } = this.mergeEvent(e);
         this.mouse = [mouseX, mouseY];
         this.syncMousePoint(e);
         if (Math.abs(this.scale - this.fitZoomScale) > 0.01) {
             this.fitZoom();
         } else {
-            console.log('scale');
             // this.setScale(true, true, false, 2);
-            for (let i = 0; i < 30; i++) {
-                this.setScale(true, true);
-            }
+            this.zoom(2);
             // this.setScale(true, true, false);
+            console.log('this.scale :>> ', this.scale);
         }
     }
 
@@ -260,29 +269,29 @@ export default class Annotation extends EventBus {
                             this.activeShape.coor.push([nx, ny]);
                         }
                     }
-                } else if (this.createType > 0 && !this.readonly) { // 开始创建
+                } else if (this.createType !== OpType.NONE && !this.readonly) { // 开始创建
                     let newShape;
                     const nx = Math.round(offsetX - this.originX / this.scale);
                     const ny = Math.round(offsetY - this.originY / this.scale);
                     const curPoint: Point = [nx, ny];
                     switch (this.createType) {
-                        case 1:
+                        case OpType.RECT:
                             newShape = new Rect({ coor: [curPoint, curPoint] }, this.dataset.length);
                             newShape.creating = true;
                             break;
-                        case 2:
+                        case OpType.POLYGON:
                             newShape = new Polygon({ coor: [curPoint] }, this.dataset.length);
                             newShape.creating = true;
                             break;
-                        case 3:
+                        case OpType.DOT:
                             newShape = new Dot({ coor: curPoint }, this.dataset.length);
                             this.emit('add', newShape);
                             break;
-                        case 4:
+                        case OpType.LINE:
                             newShape = new Line({ coor: [curPoint] }, this.dataset.length);
                             newShape.creating = true;
                             break;
-                        case 5:
+                        case OpType.CIRCLE:
                             newShape = new Circle({ coor: curPoint }, this.dataset.length);
                             newShape.creating = true;
                             break;
@@ -761,192 +770,6 @@ export default class Annotation extends EventBus {
     }
 
     /**
-     * 绘制矩形
-     * @param shape 标注实例
-     * @returns
-     */
-    drawRect(shape: Rect) {
-        if (shape.coor.length !== 2) return;
-        const { strokeStyle, fillStyle, active, creating, coor, lineWidth } = shape;
-        const [[x0, y0], [x1, y1]] = coor.map((a: Point) => a.map((b) => Math.round(b * this.scale)));
-        this.ctx.save();
-        this.ctx.lineWidth = lineWidth || this.lineWidth;
-        this.ctx.fillStyle = fillStyle || this.fillStyle;
-        this.ctx.strokeStyle = (active || creating) ? this.activeStrokeStyle : (strokeStyle || this.strokeStyle);
-        const w = x1 - x0;
-        const h = y1 - y0;
-        if (!creating) this.ctx.fillRect(x0, y0, w, h);
-        this.ctx.strokeRect(x0, y0, w, h);
-        this.ctx.restore();
-        this.drawLabel(coor[0], shape);
-    }
-
-    /**
-     * 绘制多边形
-     * @param shape 标注实例
-     */
-    drawPolygon(shape: Polygon) {
-        const { strokeStyle, fillStyle, active, creating, coor, lineWidth } = shape;
-        this.ctx.save();
-        this.ctx.lineJoin = 'round';
-        this.ctx.lineWidth = lineWidth || this.lineWidth;
-        this.ctx.fillStyle = fillStyle || this.fillStyle;
-        this.ctx.strokeStyle = (active || creating) ? this.activeStrokeStyle : (strokeStyle || this.strokeStyle);
-        this.ctx.beginPath();
-        coor.forEach((el: Point, i) => {
-            const [x, y] = el.map((a) => Math.round(a * this.scale));
-            if (i === 0) {
-                this.ctx.moveTo(x, y);
-            } else {
-                this.ctx.lineTo(x, y);
-            }
-        });
-        if (creating) {
-            const [x, y] = this.mouse || [];
-            this.ctx.lineTo(x - this.originX, y - this.originY);
-        } else if (coor.length > 2) {
-            this.ctx.closePath();
-        }
-        this.ctx.fill();
-        this.ctx.stroke();
-        this.ctx.restore();
-        this.drawLabel(coor[0], shape);
-    }
-
-    /**
-     * 绘制点
-     * @param shape 标注实例
-     */
-    drawDot(shape: Dot) {
-        const { strokeStyle, fillStyle, active, coor, lineWidth } = shape;
-        const [x, y] = coor.map((a) => a * this.scale);
-        this.ctx.save();
-        this.ctx.lineWidth = lineWidth || this.lineWidth;
-        this.ctx.fillStyle = fillStyle || this.ctrlFillStyle;
-        this.ctx.strokeStyle = active ? this.activeStrokeStyle : (strokeStyle || this.strokeStyle);
-        this.ctx.beginPath();
-        this.ctx.arc(x, y, this.ctrlRadius, 0, 2 * Math.PI, true);
-        this.ctx.fill();
-        this.ctx.arc(x, y, this.ctrlRadius, 0, 2 * Math.PI, true);
-        this.ctx.stroke();
-        this.ctx.restore();
-        this.drawLabel(coor as Point, shape);
-    }
-
-    /**
-     * 绘制圆
-     * @param shape 标注实例
-     */
-    drawCirle(shape: Circle) {
-        const { strokeStyle, fillStyle, active, coor, label, creating, radius, ctrlsData, lineWidth } = shape;
-        const [x, y] = coor.map((a) => a * this.scale);
-        this.ctx.save();
-        this.ctx.lineWidth = lineWidth || this.lineWidth;
-        this.ctx.fillStyle = fillStyle || this.fillStyle;
-        this.ctx.strokeStyle = (active || creating) ? this.activeStrokeStyle : (strokeStyle || this.strokeStyle);
-        this.ctx.beginPath();
-        this.ctx.arc(x, y, radius * this.scale, 0, 2 * Math.PI, true);
-        this.ctx.fill();
-        this.ctx.arc(x, y, radius * this.scale, 0, 2 * Math.PI, true);
-        this.ctx.stroke();
-        this.ctx.restore();
-        this.drawLabel(ctrlsData[0] as Point, shape);
-    }
-
-    /**
-     * 绘制折线
-     * @param shape 标注实例
-     */
-    drawLine(shape: Line) {
-        const { strokeStyle, active, creating, coor, lineWidth } = shape;
-        this.ctx.save();
-        this.ctx.lineJoin = 'round';
-        this.ctx.lineWidth = lineWidth || this.lineWidth;
-        this.ctx.strokeStyle = (active || creating) ? this.activeStrokeStyle : (strokeStyle || this.strokeStyle);
-        this.ctx.beginPath();
-        coor.forEach((el: Point, i) => {
-            const [x, y] = el.map((a) => Math.round(a * this.scale));
-            if (i === 0) {
-                this.ctx.moveTo(x, y);
-            } else {
-                this.ctx.lineTo(x, y);
-            }
-        });
-        if (creating) {
-            const [x, y] = this.mouse || [];
-            this.ctx.lineTo(x - this.originX, y - this.originY);
-        }
-        this.ctx.stroke();
-        this.ctx.restore();
-        this.drawLabel(coor[0], shape);
-    }
-
-    /**
-     * 绘制控制点
-     * @param point 坐标
-     */
-    drawCtrl(point: Point) {
-        const [x, y] = point.map((a) => a * this.scale);
-        this.ctx.save();
-        this.ctx.beginPath();
-        this.ctx.fillStyle = this.ctrlFillStyle;
-        this.ctx.strokeStyle = this.ctrlStrokeStyle;
-        this.ctx.arc(x, y, this.ctrlRadius, 0, 2 * Math.PI, true);
-        this.ctx.fill();
-        this.ctx.arc(x, y, this.ctrlRadius, 0, 2 * Math.PI, true);
-        this.ctx.stroke();
-        this.ctx.restore();
-    }
-
-    /**
-     * 绘制控制点列表
-     * @param shape 标注实例
-     */
-    drawCtrlList(shape: Rect | Polygon | Line) {
-        shape.ctrlsData.forEach((point, i) => {
-            if (shape.type === 5) {
-                if (i === 1) this.drawCtrl(point);
-            } else {
-                this.drawCtrl(point);
-            }
-        });
-    }
-
-    /**
-     * 绘制label
-     * @param point 位置
-     * @param label 文本
-     */
-    drawLabel(point: Point, shape: AllShape) {
-        const { label = '', labelFillStyle = '', labelFont = '', textFillStyle = '', hideLabel, labelUp, lineWidth } = shape;
-        const isHideLabel = typeof hideLabel === 'boolean' ? hideLabel : this.hideLabel;
-        const isLabelUp = typeof labelUp === 'boolean' ? labelUp : this.labelUp;
-        const currLineWidth = lineWidth || this.lineWidth;
-
-        if (label.length && !isHideLabel) {
-            this.ctx.font = labelFont || this.labelFont;
-            const textPaddingLeft = 4;
-            const textPaddingTop = 4;
-            const newText = label.length < this.labelMaxLen + 1 ? label : `${label.slice(0, this.labelMaxLen)}...`;
-            const text = this.ctx.measureText(newText);
-            const font = parseInt(this.ctx.font) - 4;
-            const labelWidth = text.width + textPaddingLeft * 2;
-            const labelHeight = font + textPaddingTop * 2;
-            const [x, y] = point.map((a) => a * this.scale);
-            const toleft = (this.IMAGE_ORIGIN_WIDTH - point[0]) < labelWidth / this.scale;
-            const toTop = (this.IMAGE_ORIGIN_HEIGHT - point[1]) < labelHeight / this.scale;
-            const toTop2 = point[1] > labelHeight / this.scale;
-            const isup = isLabelUp ? toTop2 : toTop;
-            this.ctx.save();
-            this.ctx.fillStyle = labelFillStyle || this.labelFillStyle;
-            this.ctx.fillRect(toleft ? (x - text.width - textPaddingLeft - currLineWidth / 2) : (x + currLineWidth / 2), isup ? (y - labelHeight - currLineWidth / 2) : (y + currLineWidth / 2), labelWidth, labelHeight);
-            this.ctx.fillStyle = textFillStyle || this.textFillStyle;
-            this.ctx.fillText(newText, toleft ? (x - text.width) : (x + textPaddingLeft + currLineWidth / 2), isup ? (y - labelHeight + font + textPaddingTop) : (y + font + textPaddingTop + currLineWidth / 2), 180);
-            this.ctx.restore();
-        }
-    }
-
-    /**
      * 更新画布
      */
     update() {
@@ -963,27 +786,27 @@ export default class Annotation extends EventBus {
                 const shape = renderList[i];
                 if (shape.hide) continue;
                 switch (shape.type) {
-                    case 1:
-                        this.drawRect(shape as Rect);
+                    case OpType.RECT:
+                        drawRect.call(this, shape as Rect);
                         break;
-                    case 2:
-                        this.drawPolygon(shape as Polygon);
+                    case OpType.POLYGON:
+                        drawPolygon.call(this, shape as Polygon);
                         break;
-                    case 3:
-                        this.drawDot(shape as Dot);
+                    case OpType.DOT:
+                        drawDot.call(this, shape as Dot);
                         break;
-                    case 4:
-                        this.drawLine(shape as Line);
+                    case OpType.LINE:
+                        drawLine.call(this, shape as Line);
                         break;
-                    case 5:
-                        this.drawCirle(shape as Circle);
+                    case OpType.CIRCLE:
+                        drawCirle.call(this, shape as Circle);
                         break;
                     default:
                         break;
                 }
             }
             if ([1, 2, 4, 5].includes(this.activeShape.type) && !this.activeShape.hide) {
-                this.drawCtrlList(this.activeShape);
+                drawCtrlList.call(this, this.activeShape);
             }
             this.ctx.restore();
             this.emit('updated', this.dataset);
@@ -1019,6 +842,17 @@ export default class Annotation extends EventBus {
                 this.setScale(false, false, true);
                 this.calcStep('s');
             }
+        }
+    }
+
+    /**
+     * 缩放指定倍数
+     */
+    zoom(scale: number) {
+        if (this.lock) return;
+        const steps = 20 * scale;
+        for (let i = 0; i < steps; i++) {
+            this.setScale(true, true);
         }
     }
 
