@@ -1,4 +1,4 @@
-import { AllShape, Point } from ".";
+import { AllShape, Point } from "./define";
 import Circle from "./shape/Circle";
 import Dot from "./shape/Dot";
 import Line from "./shape/Line";

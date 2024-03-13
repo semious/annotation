@@ -14,7 +14,8 @@
     "experimentalDecorators": true,
     "resolveJsonModule": true,
     "moduleResolution": "node",
-    "declaration": true
+    "declaration": true,
+    "strictBindCallApply": true
   },
   "include": [
     "src/**/*"
